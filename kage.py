@@ -74,25 +74,28 @@ def classify_ip(
         is_tor = abuse_data.get("isTor", False)
         is_whitelisted = abuse_data.get("isWhitelisted", False)
         usage_type = (abuse_data.get("usageType") or "").lower()
+        isp = (abuse_data.get("isp") or "").lower()
 
-        if is_tor or score >= 90:
+        if is_tor or score >= 80:
             return "malicious", "Malicious"
 
         if is_whitelisted:
+            if score >= 40 or reports >= 10:
+                return "suspicious", "Suspicious"
+            return "clean", "Clean"
+
+        # infra pública conocida: no la marques sospechosa solo por existir reportes bajos
+        if any(x in usage_type for x in ["content delivery", "cdn"]) or any(
+            x in isp for x in ["google", "cloudflare", "amazon", "aws", "microsoft", "azure"]
+        ):
             if score >= 50:
                 return "suspicious", "Suspicious"
             return "clean", "Clean"
 
-        if score >= 50:
+        if score >= 25:
             return "suspicious", "Suspicious"
 
-        if score >= 25 and reports >= 10:
-            return "suspicious", "Suspicious"
-
-        if "content delivery" in usage_type or "cdn" in usage_type:
-            return "clean", "Clean"
-
-        if reports >= 25:
+        if reports >= 5:
             return "suspicious", "Suspicious"
 
         return "clean", "Clean"

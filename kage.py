@@ -76,21 +76,20 @@ def classify_ip(
         usage_type = (abuse_data.get("usageType") or "").lower()
         isp = (abuse_data.get("isp") or "").lower()
 
+        known_public_infra = (
+            is_whitelisted
+            or "content delivery" in usage_type
+            or "cdn" in usage_type
+            or any(x in isp for x in ["google", "cloudflare", "amazon", "aws", "microsoft", "azure", "akamai", "fastly"])
+        )
+
         if is_tor or score >= 80:
             return "malicious", "Malicious"
 
-        if is_whitelisted:
-            if score >= 40 or reports >= 10:
-                return "suspicious", "Suspicious"
-            return "clean", "Clean"
-
-        # infra pública conocida: no la marques sospechosa solo por existir reportes bajos
-        if any(x in usage_type for x in ["content delivery", "cdn"]) or any(
-            x in isp for x in ["google", "cloudflare", "amazon", "aws", "microsoft", "azure"]
-        ):
+        if known_public_infra:
             if score >= 50:
                 return "suspicious", "Suspicious"
-            return "clean", "Clean"
+            return "clean", "Known public infrastructure"
 
         if score >= 25:
             return "suspicious", "Suspicious"
@@ -279,9 +278,9 @@ def ip(
         "private": "Dirección privada",
         "local": "Dirección local/loopback",
         "special": "Rango especial o reservado",
-        "malicious": "Señales fuertes de abuso o infraestructura sospechosa",
-        "suspicious": "Algunas señales de riesgo o reportes observados",
-        "clean": "Sin señales relevantes en la consulta realizada",
+        "malicious": "Score alto o señales fuertes de abuso",
+        "suspicious": "Se observaron señales relevantes de riesgo",
+        "clean": "Sin señales relevantes o infraestructura pública conocida",
         "unknown": "Sin suficiente contexto reputacional",
     }
     verdict_reason = reason_map.get(verdict_key, "Clasificación no determinada")
